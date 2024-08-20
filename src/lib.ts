@@ -39,46 +39,46 @@ export function scrubSecrets(input: string): string {
 
 // OPTION 1.
 // option of removing parts of each application diff iteratively 
-export function truncateDiffOutput(diffArray: Diff[], maxLength: number = 65536): Diff[] {
-  let jsonString = JSON.stringify(diffArray);
-  let currentLength = jsonString.length;
+// export function truncateDiffOutput(diffArray: Diff[], maxLength: number = 65536): Diff[] {
+//   let jsonString = JSON.stringify(diffArray);
+//   let currentLength = jsonString.length;
 
-  if (currentLength < maxLength) {
-    return diffArray; // within limit
-  }
-  // need to iterate over array of apps diffs.
-  for (let i = 0; i < diffArray.length; i++) {
-    let diff = diffArray[i];
+//   if (currentLength < maxLength) {
+//     return diffArray; // within limit
+//   }
+//   // need to iterate over array of apps diffs.
+//   for (let i = 0; i < diffArray.length; i++) {
+//     let diff = diffArray[i];
 
-    const excessLength = currentLength - maxLength;
-    if (diff.diff.length > excessLength) {
-      diff.diff = diff.diff.slice(0, diff.diff.length - excessLength);
-    } else {
-      diff.diff = ""; //remove if smaller
-    }
+//     const excessLength = currentLength - maxLength;
+//     if (diff.diff.length > excessLength) {
+//       diff.diff = diff.diff.slice(0, diff.diff.length - excessLength);
+//     } else {
+//       diff.diff = ""; //remove if smaller
+//     }
 
-    // recalc size with trimmed diff
-    jsonString = JSON.stringify(diffArray);
-    currentLength = jsonString.length;
+//     // recalc size with trimmed diff
+//     jsonString = JSON.stringify(diffArray);
+//     currentLength = jsonString.length;
 
-    // if still too long, trim error field if exists
-    if (currentLength > maxLength && diff.error) {
-      const errorLength = currentLength - maxLength;
-      const errorString = JSON.stringify(diff.error);
-      diff.error = JSON.parse(errorString.slice(0, errorString.length - errorLength)) as ExecResult;
+//     // if still too long, trim error field if exists
+//     if (currentLength > maxLength && diff.error) {
+//       const errorLength = currentLength - maxLength;
+//       const errorString = JSON.stringify(diff.error);
+//       diff.error = JSON.parse(errorString.slice(0, errorString.length - errorLength)) as ExecResult;
 
-      jsonString = JSON.stringify(diffArray);
-      currentLength = jsonString.length;
-    }
+//       jsonString = JSON.stringify(diffArray);
+//       currentLength = jsonString.length;
+//     }
 
-    //stop trimming if within limit
-    if (currentLength < maxLength) {
-      break;
-    }
-  }
-  return diffArray;
+//     //stop trimming if within limit
+//     if (currentLength < maxLength) {
+//       break;
+//     }
+//   }
+//   return diffArray;
 
-}
+// }
 
 // OPTION 2. (with extra options inside :) )
 //Option of poping elements from the array completely until below limit.
@@ -90,31 +90,37 @@ export function truncateOutputArray(diffOutput: string[], maxLength: number = 65
     return diffOutput;
   }
 
+  // truncate string from end of array.
+  for (let i = diffOutput.length - 1; i >= 0; i--) {
+    const excessLength = currentLength - maxLength;
+
+    if (diffOutput[i].length > excessLength) {
+      diffOutput[i] = diffOutput[i].slice(0, diffOutput[i].length - excessLength);
+    } else {
+      diffOutput[i] = ""; // if string smaller than excess
+    }
+
+    jsonString = JSON.stringify(diffOutput);
+    currentLength = jsonString.length;
+
+    if (currentLength < maxLength) {
+      break;
+    }
+  }
+  // failsafe pop'ing entire array elemtens if truncating isn't enough
   while (currentLength > maxLength && diffOutput.length > 0) {
     diffOutput.pop();
     jsonString = JSON.stringify(diffOutput);
     currentLength = jsonString.length;
   }
+  const truncMessage = "\n **** The Diff has been truncated, please see full artifact log ****"
+
+  // Edge case, pop an element as to make sure that there is room for the truncated message
+  if (jsonString.length > maxLength - truncMessage.length - 2) {
+    diffOutput.pop();
+  }
+  diffOutput.push(truncMessage)
 
   return diffOutput;
 
-  // Alternative which truncates strings from end of array.
-  // can be combined with above as a failsafe
-
-  // for (let i = diffOutput.length - 1; i >= 0; i--) {
-  //   const excessLength = currentLength - maxLength;
-
-  //   if (diffOutput[i].length > excessLength) {
-  //     diffOutput[i] = diffOutput[i].slice(0, diffOutput[i].length - excessLength);
-  //   } else {
-  //     diffOutput[i] = ""; // if string smaller than excess
-  //   }
-
-  //   jsonString = JSON.stringify(diffOutput);
-  //   currentLength = jsonString.length;
-
-  //   if (currentLength < maxLength) {
-  //     break;
-  //   }
-  // }
 }

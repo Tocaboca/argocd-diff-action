@@ -1,13 +1,16 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // local imports
 import { AppTargetRevision } from './argocd/AppTargetRevision';
 import { ArgoCDServer } from './argocd/ArgoCDServer';
 import { Diff } from './Diff';
 import { scrubSecrets } from './lib';
-import { truncateDiffOutput } from './lib';
+//import { truncateDiffOutput } from './lib';
 import { truncateOutputArray } from './lib';
+
 
 
 const ARCH = process.env.ARCH || 'linux';
@@ -68,7 +71,11 @@ ${diff}
   );
 
   // OPTION 2.
-  //  const trimmedDiffOutput = truncateOutputArray(diffOutput);
+  // full message still in var diffOutput
+  const trimmedDiffOutput = truncateOutputArray(diffOutput);
+
+  const fullOutputPath = path.join(__dirname, 'fullOutput.json');
+  fs.writeFileSync(fullOutputPath, JSON.stringify(diffOutput));
 
   // Use a unique value at the beginning of each comment so we can find the correct comment for the argocd server FQDN
   const headerPrefix = `<!-- argocd-diff-action ${ARGOCD_SERVER_FQDN} -->`;
@@ -79,7 +86,7 @@ ${diff}
 
   const output = scrubSecrets(`${header}
 _Updated at ${new Date().toLocaleString('en-CA', { timeZone: 'America/Toronto' })} PT_
-  ${diffOutput.join('\n')}
+  ${trimmedDiffOutput.join('\n')}
 
 | Legend | Status |
 | :---:  | :---   |

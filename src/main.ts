@@ -105,6 +105,14 @@ _Updated at ${new Date().toLocaleString('en-CA', { timeZone: 'America/Toronto' }
     d => d.body?.includes(headerPrefix) ?? false
   );
 
+  // TESTING length. REMOVE THIS AFTER
+  const fullOutputLength = JSON.stringify(diffOutput.length);
+  const fullTruncatedLength = JSON.stringify(output.length);
+  console.log(`##############################################`)
+  console.log(`Full output length: ${fullOutputLength} characters`);
+  console.log(`Truncated output length: ${fullTruncatedLength} characters`);
+  console.log(`##############################################`)
+
   // Existing comments should be updated even if there are no changes this round in order to indicate that
   if (existingComment) {
     octokit.rest.issues.updateComment({

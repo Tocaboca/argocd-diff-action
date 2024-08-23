@@ -26,7 +26,7 @@ export class AppCollection {
   filterByRepo(repoMatch: string): AppCollection {
     return new AppCollection(
       this.apps.filter(app => {
-        console.log(app);
+        //console.log(app); // test to simply filter out any app info during job run
         return app.spec.source !== undefined && app.spec.source.repoURL.includes(repoMatch);
       })
     );

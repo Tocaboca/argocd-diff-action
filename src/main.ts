@@ -16,6 +16,7 @@ import { truncateOutputArray } from './lib';
 const ARCH = process.env.ARCH || 'linux';
 const githubToken = core.getInput('github-token');
 core.info(githubToken);
+const artifact_path = 'artifacts/output'
 
 const ARGOCD_SERVER_FQDN = core.getInput('argocd-server-fqdn');
 const ARGOCD_TOKEN = core.getInput('argocd-token');
@@ -74,7 +75,7 @@ ${diff}
   // full message still in var diffOutput
   const trimmedDiffOutput = truncateOutputArray(diffOutput);
 
-  const fullOutputPath = path.join(__dirname, 'fullOutput.json');
+  const fullOutputPath = path.join(artifact_path, 'fullOutput.json').replace(/\\/g, '/');
   fs.writeFileSync(fullOutputPath, JSON.stringify(diffOutput));
 
   // Use a unique value at the beginning of each comment so we can find the correct comment for the argocd server FQDN

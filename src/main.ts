@@ -1,15 +1,22 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // local imports
 import { AppTargetRevision } from './argocd/AppTargetRevision';
 import { ArgoCDServer } from './argocd/ArgoCDServer';
 import { Diff } from './Diff';
 import { scrubSecrets } from './lib';
+//import { truncateDiffOutput } from './lib';
+import { truncateOutputArray } from './lib';
+
+
 
 const ARCH = process.env.ARCH || 'linux';
 const githubToken = core.getInput('github-token');
 core.info(githubToken);
+const artifact_path = 'artifacts/output'
 
 const ARGOCD_SERVER_FQDN = core.getInput('argocd-server-fqdn');
 const ARGOCD_TOKEN = core.getInput('argocd-token');
@@ -25,14 +32,16 @@ async function postDiffComment(diffs: Diff[]): Promise<void> {
   const commitLink = `https://github.com/${owner}/${repo}/pull/${github.context.issue.number}/commits/${sha}`;
   const shortCommitSha = String(sha).substring(0, 7);
 
+  // OPTION 1.
+  //const trimmedDiff = truncateDiffOutput(diffs)
+
   const diffOutput = diffs.map(
-    ({ app, diff, error }) => `   
-App: [\`${app.metadata.name}\`](https://${ARGOCD_SERVER_FQDN}/applications/${app.metadata.name}) 
+    ({ app, diff, error }) => `
+App: [\`${app.metadata.name}\`](https://${ARGOCD_SERVER_FQDN}/applications/${app.metadata.name})
 YAML generation: ${error ? ' Error 🛑' : 'Success 🟢'}
 App sync status: ${app.status.sync.status === 'Synced' ? 'Synced ✅' : 'Out of Sync ⚠️ '}
-${
-  error
-    ? `
+${error
+        ? `
 **\`stderr:\`**
 \`\`\`
 ${error.stderr}
@@ -43,12 +52,11 @@ ${error.stderr}
 ${JSON.stringify(error.err)}
 \`\`\`
 `
-    : ''
-}
+        : ''
+      }
 
-${
-  diff
-    ? `
+${diff
+        ? `
 <details>
 
 \`\`\`diff
@@ -57,16 +65,29 @@ ${diff}
 
 </details>
 `
-    : ''
-}
+        : ''
+      }
 ---
 `
   );
 
-  const output = scrubSecrets(`
-## ArgoCD Diff for commit [\`${shortCommitSha}\`](${commitLink})
+  // OPTION 2.
+  // full message still in var diffOutput
+  const trimmedDiffOutput = truncateOutputArray(diffOutput);
+
+  const fullOutputPath = path.join(artifact_path, 'fullOutput.json').replace(/\\/g, '/');
+  fs.writeFileSync(fullOutputPath, JSON.stringify(diffOutput));
+
+  // Use a unique value at the beginning of each comment so we can find the correct comment for the argocd server FQDN
+  const headerPrefix = `<!-- argocd-diff-action ${ARGOCD_SERVER_FQDN} -->`;
+
+  const header = `${headerPrefix}
+## ArgoCD Diff ${ARGOCD_SERVER_FQDN} for commit [\`${shortCommitSha}\`](${commitLink})
+`;
+
+  const output = scrubSecrets(`${header}
 _Updated at ${new Date().toLocaleString('en-CA', { timeZone: 'America/Toronto' })} PT_
-  ${diffOutput.join('\n')}
+  ${trimmedDiffOutput.join('\n')}
 
 | Legend | Status |
 | :---:  | :---   |
@@ -82,8 +103,16 @@ _Updated at ${new Date().toLocaleString('en-CA', { timeZone: 'America/Toronto' }
   });
 
   const existingComment = commentsResponse.data.find(
-    d => d.body?.includes('ArgoCD Diff for') ?? false
+    d => d.body?.includes(headerPrefix) ?? false
   );
+
+  // TESTING length. REMOVE THIS AFTER
+  const fullOutputLength = JSON.stringify(diffOutput.length);
+  const fullTruncatedLength = JSON.stringify(output.length);
+  console.log(`##############################################`)
+  console.log(`Full output length: ${fullOutputLength} characters`);
+  console.log(`Truncated output length: ${fullTruncatedLength} characters`);
+  console.log(`##############################################`)
 
   // Existing comments should be updated even if there are no changes this round in order to indicate that
   if (existingComment) {
